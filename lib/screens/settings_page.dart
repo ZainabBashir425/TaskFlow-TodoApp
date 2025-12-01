@@ -50,8 +50,8 @@ class _SettingsScreenState extends State<SettingsPage> {
                     "Reset data",
                     style: TextStyle(
                       color: Color(0xFFB24EFF),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
 
@@ -178,7 +178,7 @@ class _SettingsScreenState extends State<SettingsPage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           gradient: const LinearGradient(
-            colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+            colors: [Color(0xFF7B61FF), Color(0xFFBE73E0)],
           ),
         ),
         child: Row(

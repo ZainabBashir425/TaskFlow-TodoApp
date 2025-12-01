@@ -204,12 +204,11 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                       width: 20,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: Colors.white,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Icon(
-                        Icons.add,
-                        color: Color(0xFF7B61FF),
+                        Icons.check,
+                        color: Colors.white,
                         size: 16,
                       ),
                     ),

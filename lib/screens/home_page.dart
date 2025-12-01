@@ -8,7 +8,7 @@ class HomePage extends StatelessWidget {
 
   Widget _buildHeader(BuildContext ctx) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(20, 40, 20, 40),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF7B61FF), Color(0xFFB26BFF)],
@@ -45,15 +45,6 @@ class HomePage extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              // small icon
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.more_vert, color: Colors.white),
-              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -97,7 +88,7 @@ class HomePage extends StatelessWidget {
             children: const [
               Text("Today's Task", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               Spacer(),
-              Icon(Icons.repeat, color: Colors.purple),
+              Icon(Icons.repeat, color: Color(0xFF855BE1)),
             ],
           ),
           const SizedBox(height: 12),
@@ -106,8 +97,8 @@ class HomePage extends StatelessWidget {
             title: "Welcome to TaskFlow!",
             subtitle: "Complete this task to get started",
             tags: [
-              TagChip(text: 'Getting Started', color: Color(0xFFBFA6FF)),
-              TagChip(text: 'high', color: Color(0xFFFFC6D1)),
+              TagChip(text: 'Getting Started', color: Color(0xFF8A38F5)),
+              TagChip(text: 'high', color: Color(0xFFD93C65)),
               TagChip(text: 'Oct 18', color: Color(0xFFE6E9F2), outlined: true),
             ],
           ),
@@ -116,8 +107,8 @@ class HomePage extends StatelessWidget {
             title: "Create Your first task",
             subtitle: "Tap the + button to add a new task",
             tags: [
-              TagChip(text: 'Tutorial', color: Color(0xFFD9F6E8)),
-              TagChip(text: 'medium', color: Color(0xFFFFF2C8)),
+              TagChip(text: 'Tutorial', color: Color(0xFF50B27A)),
+              TagChip(text: 'medium', color: Color(0xFFEFCB0D)),
               TagChip(text: 'Oct 18', color: Color(0xFFE6E9F2), outlined: true),
             ],
           ),

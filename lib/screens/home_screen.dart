@@ -30,16 +30,38 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Navigate to New Task Screen instead of showing snackbar
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const NewTaskScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFFAD7BFF),
-        child: const Icon(Icons.add, size: 30),
+      floatingActionButton: Container(
+        width: 68,
+        height: 68,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFFEFA8FF), // pinkish (18%)
+              Color(0xFF8E5BFF), // purple
+            ],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.20),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: RawMaterialButton(
+          shape: const CircleBorder(),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const NewTaskScreen()),
+            );
+          },
+          child: const Icon(Icons.add, size: 32, color: Colors.white),
+        ),
       ),
+
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomNavBar(
         currentIndex: _index,
