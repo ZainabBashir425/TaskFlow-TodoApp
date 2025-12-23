@@ -47,7 +47,7 @@ class BottomNavBar extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: active ? const Color(0xFF7B61FF) : Colors.grey,
+                color: active ? const Color(0xFF8A38F5) : Colors.grey,
                 size: 22,
               ),
               const SizedBox(height: 2),

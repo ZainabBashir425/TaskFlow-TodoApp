@@ -26,8 +26,8 @@ class _CalendarPageState extends State<CalendarPage> {
           "title": "Welcome to TaskFlow!",
           "subtitle": "Complete this task to get started",
           "tags": [
-            {"text": 'Getting Started', "color": 0xFFCFB9FF, "outlined": false},
-            {"text": 'high', "color": 0xFFFFD0DA, "outlined": false},
+            {"text": 'Getting Started', "color": 0xFF8A38F5, "outlined": false},
+            {"text": 'high', "color": 0xFFD93C65, "outlined": false},
             {"text": 'Oct 18', "color": 0xFFE6E9F2, "outlined": true},
           ],
         },
@@ -35,15 +35,15 @@ class _CalendarPageState extends State<CalendarPage> {
           "title": "UI Design Task",
           "subtitle": "Work on the new UI enhancements",
           "tags": [
-            {"text": 'Design', "color": 0xFFD7E8FF, "outlined": false},
-            {"text": 'medium', "color": 0xFFFFE5B5, "outlined": false},
+            {"text": 'Design', "color": 0xFF50B27A, "outlined": false},
+            {"text": 'medium', "color": 0xFFEFCB0D, "outlined": false},
           ],
         },
         {
           "title": "Fix Calendar Screen",
           "subtitle": "Match design exactly as provided",
           "tags": [
-            {"text": 'Bug Fix', "color": 0xFFFFD0DA, "outlined": false},
+            {"text": 'Bug Fix', "color": 0xFFEFCB0D, "outlined": false},
           ],
         }
       ],
@@ -102,7 +102,7 @@ class _CalendarPageState extends State<CalendarPage> {
           // 🌈 TOP GRADIENT HEADER
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(20, 30, 20, 40),
+            padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [Color(0xFF7B61FF), Color(0xFFA28BFF)],
@@ -122,7 +122,7 @@ class _CalendarPageState extends State<CalendarPage> {
                   style: TextStyle(
                       fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 6),
+                SizedBox(height: 3),
                 Text(
                   "View Your Tasks by Date",
                   style: TextStyle(color: Colors.white70, fontSize: 15),
@@ -173,9 +173,14 @@ class _CalendarPageState extends State<CalendarPage> {
                       duration: const Duration(milliseconds: 200),
                       margin: const EdgeInsets.only(right: 14),
                       width: 50,
+                      height: isSelected ? 110 :90,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7B61FF),
+                        color: const Color(0xFF7D3CD9),
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                        color: Colors.white, // grey border
+                        width: 2.0,
+                      ),
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
@@ -243,7 +248,7 @@ class _CalendarPageState extends State<CalendarPage> {
                 Text(
                   "${tasks.length} Tasks",
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                      fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF7C63DE)),
                 ),
               ],
             ),
