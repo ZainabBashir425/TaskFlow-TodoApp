@@ -2,11 +2,26 @@ import 'package:flutter/material.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/task_card.dart';
 import '../widgets/tag_chip.dart';
+import '../services/supabase_service.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
-  Widget _buildHeader(BuildContext ctx) {
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  Future<List<Map<String, dynamic>>> fetchTasks() async {
+    final response = await SupabaseService.client
+        .from('tasks')
+        .select()
+        .order('due_date', ascending: true);
+
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Widget _buildHeader(BuildContext ctx, double progress) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 40, 20, 40),
       decoration: const BoxDecoration(
@@ -23,7 +38,6 @@ class HomePage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // top row with avatar & greeting
           Row(
             children: [
               CircleAvatar(
@@ -35,29 +49,36 @@ class HomePage extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
-                  Text("Good Evening!", style: TextStyle(color: Colors.white70)),
+                  Text(
+                    "Good Evening!",
+                    style: TextStyle(color: Colors.white70),
+                  ),
                   SizedBox(height: 4),
-                  Text("Zack Snyder",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18)),
+                  Text(
+                    "TaskFlow User",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
                 ],
               ),
-              const Spacer(),
             ],
           ),
           const SizedBox(height: 18),
-          const Text("Today's Progress", style: TextStyle(color: Colors.white70)),
+          const Text(
+            "Today's Progress",
+            style: TextStyle(color: Colors.white70),
+          ),
           const SizedBox(height: 8),
-          // progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: LinearProgressIndicator(
               minHeight: 10,
-              value: 0.0,
+              value: progress,
               backgroundColor: Colors.white24,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
             ),
           ),
         ],
@@ -65,53 +86,79 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsRow() {
+  Widget _buildStatsRow(int total, int completed) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14),
       child: Row(
-        children: const [
-          Expanded(child: StatCard(title: 'Total Task', value: '2', icon: Icons.access_time)),
-          SizedBox(width: 12),
-          Expanded(child: StatCard(title: 'Completed', value: '0', icon: Icons.check_circle)),
+        children: [
+          Expanded(
+            child: StatCard(
+              title: 'Total Task',
+              value: total.toString(),
+              icon: Icons.access_time,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: StatCard(
+              title: 'Completed',
+              value: completed.toString(),
+              icon: Icons.check_circle,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTodayTasks() {
+  Widget _buildTodayTasks(List<Map<String, dynamic>> tasks) {
+    if (tasks.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: Text("No tasks for today")),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         children: [
-          // heading
           Row(
             children: const [
-              Text("Today's Task", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                "Today's Task",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               Spacer(),
               Icon(Icons.repeat, color: Color(0xFF855BE1)),
             ],
           ),
           const SizedBox(height: 12),
-          // task cards
-          TaskCard(
-            title: "Welcome to TaskFlow!",
-            subtitle: "Complete this task to get started",
-            tags: [
-              TagChip(text: 'Getting Started', color: Color(0xFF8A38F5)),
-              TagChip(text: 'high', color: Color(0xFFD93C65)),
-              TagChip(text: 'Oct 18', color: Color(0xFFE6E9F2), outlined: true),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TaskCard(
-            title: "Create Your first task",
-            subtitle: "Tap the + button to add a new task",
-            tags: [
-              TagChip(text: 'Tutorial', color: Color(0xFF50B27A)),
-              TagChip(text: 'medium', color: Color(0xFFEFCB0D)),
-              TagChip(text: 'Oct 18', color: Color(0xFFE6E9F2), outlined: true),
-            ],
-          ),
+
+          ...tasks.map((task) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: TaskCard(
+                title: task['title'] ?? '',
+                subtitle: task['description'] ?? '',
+                tags: [
+                  TagChip(
+                    text: task['category'] ?? '',
+                    color: const Color(0xFF8A38F5),
+                  ),
+                  TagChip(
+                    text: task['priority'] ?? '',
+                    color: const Color(0xFFD93C65),
+                  ),
+                  TagChip(
+                    text: task['due_date'] ?? '',
+                    color: const Color(0xFFE6E9F2),
+                    outlined: true,
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
         ],
       ),
     );
@@ -119,17 +166,37 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // page scaffold with scrollable content
     return SafeArea(
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildHeader(context),
-            _buildStatsRow(),
-            _buildTodayTasks(),
-            const SizedBox(height: 80), // space for bottom nav
-          ],
-        ),
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: fetchTasks(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData) {
+            return const Center(child: Text('Something went wrong'));
+          }
+
+          final tasks = snapshot.data!;
+          final totalTasks = tasks.length;
+          final completedTasks = tasks
+              .where((t) => t['status'] == 'Done')
+              .length;
+
+          final progress = totalTasks == 0 ? 0.0 : completedTasks / totalTasks;
+
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildHeader(context, progress),
+                _buildStatsRow(totalTasks, completedTasks),
+                _buildTodayTasks(tasks),
+                const SizedBox(height: 80),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
