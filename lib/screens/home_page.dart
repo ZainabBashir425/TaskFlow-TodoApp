@@ -3,6 +3,7 @@ import '../widgets/stat_card.dart';
 import '../widgets/task_card.dart';
 import '../widgets/tag_chip.dart';
 import '../services/supabase_service.dart';
+import 'new_task_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,6 +13,14 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  Future<List<Map<String, dynamic>>>? _tasksFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _tasksFuture = fetchTasks();
+  }
+
   Future<List<Map<String, dynamic>>> fetchTasks() async {
     final response = await SupabaseService.client
         .from('tasks')
@@ -21,7 +30,7 @@ class _HomePageState extends State<HomePage> {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  Widget _buildHeader(BuildContext ctx, double progress) {
+  Widget _buildHeader(double progress) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 40, 20, 40),
       decoration: const BoxDecoration(
@@ -46,9 +55,9 @@ class _HomePageState extends State<HomePage> {
                 child: const Icon(Icons.person, color: Colors.white),
               ),
               const SizedBox(width: 12),
-              Column(
+              const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     "Good Evening!",
                     style: TextStyle(color: Colors.white70),
@@ -115,7 +124,7 @@ class _HomePageState extends State<HomePage> {
     if (tasks.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(24),
-        child: Center(child: Text("No tasks for today")),
+        child: Center(child: Text("No tasks yet")),
       );
     }
 
@@ -134,7 +143,6 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const SizedBox(height: 12),
-
           ...tasks.map((task) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -164,39 +172,61 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _openAddTask() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NewTaskScreen()),
+    );
+
+    if (result == true) {
+      setState(() {
+        _tasksFuture = fetchTasks();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: FutureBuilder<List<Map<String, dynamic>>>(
-        future: fetchTasks(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openAddTask,
+        backgroundColor: const Color(0xFF7B61FF),
+        child: const Icon(Icons.add),
+      ),
+      body: SafeArea(
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _tasksFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (!snapshot.hasData) {
-            return const Center(child: Text('Something went wrong'));
-          }
+            if (!snapshot.hasData) {
+              return const Center(child: Text('Something went wrong'));
+            }
 
-          final tasks = snapshot.data!;
-          final totalTasks = tasks.length;
-          final completedTasks = tasks
-              .where((t) => t['status'] == 'Done')
-              .length;
+            final tasks = snapshot.data!;
+            final totalTasks = tasks.length;
+            final completedTasks = tasks
+                .where((t) => t['status'] == 'Done')
+                .length;
 
-          final progress = totalTasks == 0 ? 0.0 : completedTasks / totalTasks;
+            final progress = totalTasks == 0
+                ? 0.0
+                : completedTasks / totalTasks;
 
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                _buildHeader(context, progress),
-                _buildStatsRow(totalTasks, completedTasks),
-                _buildTodayTasks(tasks),
-                const SizedBox(height: 80),
-              ],
-            ),
-          );
-        },
+            return SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildHeader(progress),
+                  _buildStatsRow(totalTasks, completedTasks),
+                  _buildTodayTasks(tasks),
+                  const SizedBox(height: 80),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
