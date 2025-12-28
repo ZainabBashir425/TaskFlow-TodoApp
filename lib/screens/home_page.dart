@@ -9,23 +9,32 @@ class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() => HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  Future<List<Map<String, dynamic>>>? _tasksFuture;
+class HomePageState extends State<HomePage> {
+  // 1. Create a variable to store the future
+  late Future<List<Map<String, dynamic>>> _tasksFuture;
 
   @override
   void initState() {
     super.initState();
+    // Initialize the variable directly here to avoid the LateInitializationError
     _tasksFuture = fetchTasks();
+  }
+
+  void refreshData() {
+    // Use setState only when updating the variable after the first load
+    setState(() {
+      _tasksFuture = fetchTasks();
+    });
   }
 
   Future<List<Map<String, dynamic>>> fetchTasks() async {
     final response = await SupabaseService.client
         .from('tasks')
         .select()
-        .order('due_date', ascending: true);
+        .order('created_at', ascending: false);
 
     return List<Map<String, dynamic>>.from(response);
   }
@@ -36,8 +45,6 @@ class _HomePageState extends State<HomePage> {
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF7B61FF), Color(0xFFB26BFF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(28),
@@ -84,8 +91,8 @@ class _HomePageState extends State<HomePage> {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: LinearProgressIndicator(
-              minHeight: 10,
               value: progress,
+              minHeight: 10,
               backgroundColor: Colors.white24,
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
             ),
@@ -97,7 +104,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildStatsRow(int total, int completed) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
           Expanded(
@@ -129,11 +136,11 @@ class _HomePageState extends State<HomePage> {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          Row(
-            children: const [
+          const Row(
+            children: [
               Text(
                 "Today's Task",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -143,8 +150,8 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const SizedBox(height: 12),
-          ...tasks.map((task) {
-            return Padding(
+          ...tasks.map(
+            (task) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: TaskCard(
                 title: task['title'] ?? '',
@@ -165,61 +172,42 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-            );
-          }).toList(),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Future<void> _openAddTask() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const NewTaskScreen()),
-    );
-
-    if (result == true) {
-      setState(() {
-        _tasksFuture = fetchTasks();
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openAddTask,
-        backgroundColor: const Color(0xFF7B61FF),
-        child: const Icon(Icons.add),
-      ),
       body: SafeArea(
         child: FutureBuilder<List<Map<String, dynamic>>>(
-          future: _tasksFuture,
+          future: _tasksFuture, // 🔥 Uses the stored future
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            if (!snapshot.hasData) {
+            if (snapshot.hasError) {
               return const Center(child: Text('Something went wrong'));
             }
 
-            final tasks = snapshot.data!;
-            final totalTasks = tasks.length;
-            final completedTasks = tasks
-                .where((t) => t['status'] == 'Done')
-                .length;
+            if (!snapshot.hasData) {
+              return const Center(child: Text('No data found'));
+            }
 
-            final progress = totalTasks == 0
-                ? 0.0
-                : completedTasks / totalTasks;
+            final tasks = snapshot.data!;
+            final total = tasks.length;
+            final completed = tasks.where((t) => t['status'] == 'Done').length;
+            final progress = total == 0 ? 0.0 : completed / total;
 
             return SingleChildScrollView(
               child: Column(
                 children: [
                   _buildHeader(progress),
-                  _buildStatsRow(totalTasks, completedTasks),
+                  _buildStatsRow(total, completed),
                   _buildTodayTasks(tasks),
                   const SizedBox(height: 80),
                 ],

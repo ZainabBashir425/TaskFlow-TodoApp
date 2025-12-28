@@ -45,7 +45,7 @@ class _CalendarPageState extends State<CalendarPage> {
           "tags": [
             {"text": 'Bug Fix', "color": 0xFFEFCB0D, "outlined": false},
           ],
-        }
+        },
       ],
       "2025-11-02": [
         {
@@ -54,8 +54,8 @@ class _CalendarPageState extends State<CalendarPage> {
           "tags": [
             {"text": 'Test', "color": 0xFFD7E8FF, "outlined": false},
           ],
-        }
-      ]
+        },
+      ],
     };
     print("TaskMap initialized with keys: ${taskMap.keys.toList()}");
   }
@@ -88,7 +88,7 @@ class _CalendarPageState extends State<CalendarPage> {
     final dates = getDisplayedDates();
     final key = _formatDate(selectedDate);
     final tasks = taskMap[key] ?? [];
-    
+
     print("Building with key: $key");
     print("Tasks found: ${tasks.length}");
     print("All taskMap keys: ${taskMap.keys.toList()}");
@@ -120,7 +120,10 @@ class _CalendarPageState extends State<CalendarPage> {
                 Text(
                   "Calendar",
                   style: TextStyle(
-                      fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold),
+                    fontSize: 28,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 SizedBox(height: 3),
                 Text(
@@ -141,11 +144,16 @@ class _CalendarPageState extends State<CalendarPage> {
                 Text(
                   "$monthName ${selectedDate.year}",
                   style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.bold),
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const Spacer(),
-                const Icon(Icons.calendar_today_outlined,
-                    size: 22, color: Colors.black87),
+                const Icon(
+                  Icons.calendar_today_outlined,
+                  size: 22,
+                  color: Colors.black87,
+                ),
               ],
             ),
           ),
@@ -162,7 +170,9 @@ class _CalendarPageState extends State<CalendarPage> {
                 children: dates.map((d) {
                   final isSelected = d.day == selectedDate.day;
                   final dateKey = _formatDate(d);
-                  final hasTasks = taskMap.containsKey(dateKey) && taskMap[dateKey]!.isNotEmpty;
+                  final hasTasks =
+                      taskMap.containsKey(dateKey) &&
+                      taskMap[dateKey]!.isNotEmpty;
 
                   return GestureDetector(
                     onTap: () {
@@ -173,21 +183,21 @@ class _CalendarPageState extends State<CalendarPage> {
                       duration: const Duration(milliseconds: 200),
                       margin: const EdgeInsets.only(right: 14),
                       width: 50,
-                      height: isSelected ? 110 :90,
+                      height: isSelected ? 110 : 90,
                       decoration: BoxDecoration(
                         color: const Color(0xFF7D3CD9),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                        color: Colors.white, // grey border
-                        width: 2.0,
-                      ),
+                          color: Colors.white, // grey border
+                          width: 2.0,
+                        ),
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
                                   color: Color(0xFF7B61FF).withOpacity(0.3),
                                   blurRadius: 15,
                                   offset: Offset(0, 6),
-                                )
+                                ),
                               ]
                             : [],
                       ),
@@ -201,17 +211,23 @@ class _CalendarPageState extends State<CalendarPage> {
                               height: 6,
                               margin: const EdgeInsets.only(bottom: 6),
                               decoration: const BoxDecoration(
-                                  shape: BoxShape.circle, color: Colors.white),
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                              ),
                             ),
                           // If not selected but has tasks, add empty space to maintain alignment
                           if (!isSelected && hasTasks)
-                            const SizedBox(height: 12), // Same height as dot + margin
+                            const SizedBox(
+                              height: 12,
+                            ), // Same height as dot + margin
                           // If no tasks, add minimal space
-                          if (!hasTasks)
-                            const SizedBox(height: 6),
+                          if (!hasTasks) const SizedBox(height: 6),
                           Text(
                             _weekdayName(d.weekday),
-                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -219,8 +235,9 @@ class _CalendarPageState extends State<CalendarPage> {
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: isSelected ? 26 : 22,
-                              fontWeight:
-                                  isSelected ? FontWeight.bold : FontWeight.w600,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
                             ),
                           ),
                         ],
@@ -242,13 +259,18 @@ class _CalendarPageState extends State<CalendarPage> {
                 Text(
                   "$monthName ${selectedDate.day}, ${selectedDate.year}",
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const Spacer(),
                 Text(
                   "${tasks.length} Tasks",
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF7C63DE)),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF7C63DE),
+                  ),
                 ),
               ],
             ),
@@ -263,22 +285,20 @@ class _CalendarPageState extends State<CalendarPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.task_outlined, size: 64, color: Colors.grey[300]),
+                        Icon(
+                          Icons.task_outlined,
+                          size: 64,
+                          color: Colors.grey[300],
+                        ),
                         SizedBox(height: 16),
                         Text(
                           "No tasks for this date",
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                          ),
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
                         ),
                         SizedBox(height: 8),
                         Text(
                           "Date: $key",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ],
                     ),
@@ -304,8 +324,18 @@ class _CalendarPageState extends State<CalendarPage> {
 
   String _monthName(int m) {
     const names = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
     ];
     return names[m - 1];
   }

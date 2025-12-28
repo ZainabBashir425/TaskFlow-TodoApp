@@ -42,20 +42,29 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   Future<void> _createTask() async {
     if (_titleController.text.isEmpty) return;
 
-    final dueTime =
-        '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}:00';
+    try {
+      final dueTime =
+          '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}:00';
 
-    await SupabaseService.client.from('tasks').insert({
-      'title': _titleController.text,
-      'description': _descController.text,
-      'priority': _selectedPriority,
-      'category': _selectedCategory,
-      'due_date': _selectedDate.toIso8601String().split('T')[0],
-      'due_time': dueTime,
-      'status': 'Active',
-    });
+      await SupabaseService.client.from('tasks').insert({
+        'title': _titleController.text,
+        'description': _descController.text,
+        'priority': _selectedPriority,
+        'category': _selectedCategory,
+        'due_date': _selectedDate.toIso8601String().split('T')[0],
+        'due_time': dueTime,
+        'status': 'Active',
+      });
 
-    Navigator.of(context).pop(true); // return success
+      if (mounted) {
+        Navigator.of(context).pop(true); // Only returns true if successful
+      }
+    } catch (e) {
+      // Show an error snackbar so you know if it failed
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error creating task: $e")));
+    }
   }
 
   @override

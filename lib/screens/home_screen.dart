@@ -4,7 +4,7 @@ import 'tasks_screen.dart';
 import '../widgets/bottom_nav.dart';
 import 'calendar_page.dart';
 import 'settings_page.dart';
-import 'new_task_screen.dart'; // Add this import
+import 'new_task_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,13 +14,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
-
-  final List<Widget> _pages = const [
-    HomePage(),
-    TasksScreen(),
-    CalendarPage(),
-    SettingsPage(),
-  ];
+  // 1. Add a GlobalKey to access HomePage's state
+  final GlobalKey<HomePageState> _homeKey = GlobalKey<HomePageState>();
 
   void _onTabSelected(int idx) {
     setState(() => _index = idx);
@@ -28,6 +23,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 2. Update the pages list to use the key
+    final List<Widget> _pages = [
+      HomePage(key: _homeKey), // Pass the key here
+      const TasksScreen(),
+      const CalendarPage(),
+      const SettingsPage(),
+    ];
+
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
       floatingActionButton: Container(
@@ -36,10 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: const LinearGradient(
-            colors: [
-              Color(0xFFEFA8FF), // pinkish (18%)
-              Color(0xFF8E5BFF), // purple
-            ],
+            colors: [Color(0xFFEFA8FF), Color(0xFF8E5BFF)],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
@@ -53,15 +53,20 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: RawMaterialButton(
           shape: const CircleBorder(),
-          onPressed: () {
-            Navigator.of(context).push(
+          onPressed: () async {
+            // 3. Open the screen and wait for the result
+            final result = await Navigator.of(context).push(
               MaterialPageRoute(builder: (context) => const NewTaskScreen()),
             );
+
+            // 4. If a task was added, call the refresh function in HomePage
+            if (result == true) {
+              _homeKey.currentState?.refreshData();
+            }
           },
           child: const Icon(Icons.add, size: 32, color: Colors.white),
         ),
       ),
-
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomNavBar(
         currentIndex: _index,
