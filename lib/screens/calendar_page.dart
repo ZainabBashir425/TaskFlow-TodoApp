@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/task_card.dart';
 import '../widgets/tag_chip.dart';
+import '../services/supabase_service.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -10,89 +11,120 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
-  DateTime selectedDate = DateTime(2025, 11, 1);
-  late Map<String, List<Map<String, dynamic>>> taskMap;
+  DateTime selectedDate = DateTime.now();
+  late Future<List<Map<String, dynamic>>> _calendarTasksFuture;
+
+  // Controller to handle the horizontal slider movement
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _initializeTaskMap();
+    // Initialize data for today
+    _calendarTasksFuture = fetchTasksByDate(selectedDate);
+
+    // Auto-scroll to today's date once the UI is rendered
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToSelectedDate(),
+    );
   }
 
-  void _initializeTaskMap() {
-    taskMap = {
-      "2025-11-01": [
-        {
-          "title": "Welcome to TaskFlow!",
-          "subtitle": "Complete this task to get started",
-          "tags": [
-            {"text": 'Getting Started', "color": 0xFF8A38F5, "outlined": false},
-            {"text": 'high', "color": 0xFFD93C65, "outlined": false},
-            {"text": 'Oct 18', "color": 0xFFE6E9F2, "outlined": true},
-          ],
-        },
-        {
-          "title": "UI Design Task",
-          "subtitle": "Work on the new UI enhancements",
-          "tags": [
-            {"text": 'Design', "color": 0xFF50B27A, "outlined": false},
-            {"text": 'medium', "color": 0xFFEFCB0D, "outlined": false},
-          ],
-        },
-        {
-          "title": "Fix Calendar Screen",
-          "subtitle": "Match design exactly as provided",
-          "tags": [
-            {"text": 'Bug Fix', "color": 0xFFEFCB0D, "outlined": false},
-          ],
-        },
-      ],
-      "2025-11-02": [
-        {
-          "title": "Another Task",
-          "subtitle": "This is for November 2nd",
-          "tags": [
-            {"text": 'Test', "color": 0xFFD7E8FF, "outlined": false},
-          ],
-        },
-      ],
-    };
-    print("TaskMap initialized with keys: ${taskMap.keys.toList()}");
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // Logic to smoothly slide the horizontal bar to the selected date
+  void _scrollToSelectedDate() {
+    if (_scrollController.hasClients) {
+      // 50 (card width) + 14 (margin) = 64.0 pixels per item
+      double offset = (selectedDate.day - 1) * 64.0;
+      _scrollController.animateTo(
+        offset,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _refreshCalendarTasks() {
+    setState(() {
+      _calendarTasksFuture = fetchTasksByDate(selectedDate);
+    });
+    _scrollToSelectedDate();
+  }
+
+  // Opens the native Calendar Popup
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF7B61FF), // Header background
+              onPrimary: Colors.white, // Header text
+              onSurface: Colors.black, // Body text
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != selectedDate) {
+      setState(() {
+        selectedDate = picked;
+      });
+      _refreshCalendarTasks();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchTasksByDate(DateTime date) async {
+    final dateString = _formatDate(date);
+    final response = await SupabaseService.client
+        .from('tasks')
+        .select()
+        .eq('due_date', dateString)
+        .order('created_at', ascending: false);
+
+    return List<Map<String, dynamic>>.from(response);
   }
 
   List<DateTime> getDisplayedDates() {
-    return List.generate(15, (i) => DateTime(2025, 11, i + 1));
+    // Generates all days for the current selected month
+    DateTime start = DateTime(selectedDate.year, selectedDate.month, 1);
+    int daysInMonth = DateTime(
+      selectedDate.year,
+      selectedDate.month + 1,
+      0,
+    ).day;
+
+    return List.generate(daysInMonth, (i) => start.add(Duration(days: i)));
   }
 
   String _formatDate(DateTime date) {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
-  List<TagChip> _convertTags(List<dynamic> tagData) {
-    return tagData.map((tag) {
-      return TagChip(
-        text: tag['text'],
-        color: Color(tag['color']),
-        outlined: tag['outlined'] ?? false,
-      );
-    }).toList();
+  List<TagChip> _convertDbTags(Map<String, dynamic> task) {
+    return [
+      TagChip(text: task['category'] ?? 'Task', color: const Color(0xFF8A38F5)),
+      TagChip(
+        text: task['priority'] ?? 'low',
+        color: task['priority'] == 'high'
+            ? const Color(0xFFD93C65)
+            : const Color(0xFFEFCB0D),
+      ),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
-    // Re-initialize if empty (hot reload fix)
-    if (taskMap.isEmpty) {
-      _initializeTaskMap();
-    }
-
     final dates = getDisplayedDates();
-    final key = _formatDate(selectedDate);
-    final tasks = taskMap[key] ?? [];
-
-    print("Building with key: $key");
-    print("Tasks found: ${tasks.length}");
-    print("All taskMap keys: ${taskMap.keys.toList()}");
-
     final monthName = _monthName(selectedDate.month);
 
     return Scaffold(
@@ -114,9 +146,9 @@ class _CalendarPageState extends State<CalendarPage> {
                 bottomRight: Radius.circular(26),
               ),
             ),
-            child: Column(
+            child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
                   "Calendar",
                   style: TextStyle(
@@ -149,10 +181,13 @@ class _CalendarPageState extends State<CalendarPage> {
                   ),
                 ),
                 const Spacer(),
-                const Icon(
-                  Icons.calendar_today_outlined,
-                  size: 22,
-                  color: Colors.black87,
+                IconButton(
+                  onPressed: () => _selectDate(context),
+                  icon: const Icon(
+                    Icons.calendar_today_outlined,
+                    size: 22,
+                    color: Colors.black87,
+                  ),
                 ),
               ],
             ),
@@ -160,24 +195,25 @@ class _CalendarPageState extends State<CalendarPage> {
 
           const SizedBox(height: 16),
 
-          // 🔵 HORIZONTAL DATE CARDS (Now scrollable)
+          // 🔵 HORIZONTAL DATE SLIDER
           SizedBox(
             height: 110,
             child: SingleChildScrollView(
+              controller: _scrollController,
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 18),
               child: Row(
                 children: dates.map((d) {
-                  final isSelected = d.day == selectedDate.day;
-                  final dateKey = _formatDate(d);
-                  final hasTasks =
-                      taskMap.containsKey(dateKey) &&
-                      taskMap[dateKey]!.isNotEmpty;
+                  final isSelected =
+                      d.day == selectedDate.day &&
+                      d.month == selectedDate.month;
 
                   return GestureDetector(
                     onTap: () {
-                      print("Tapped on: $dateKey, has tasks: $hasTasks");
-                      setState(() => selectedDate = d);
+                      setState(() {
+                        selectedDate = d;
+                        _refreshCalendarTasks();
+                      });
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
@@ -187,16 +223,15 @@ class _CalendarPageState extends State<CalendarPage> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF7D3CD9),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white, // grey border
-                          width: 2.0,
-                        ),
+                        border: Border.all(color: Colors.white, width: 2.0),
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: Color(0xFF7B61FF).withOpacity(0.3),
+                                  color: const Color(
+                                    0xFF7B61FF,
+                                  ).withOpacity(0.3),
                                   blurRadius: 15,
-                                  offset: Offset(0, 6),
+                                  offset: const Offset(0, 6),
                                 ),
                               ]
                             : [],
@@ -204,7 +239,6 @@ class _CalendarPageState extends State<CalendarPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // White dot only if selected AND has tasks
                           if (isSelected)
                             Container(
                               width: 6,
@@ -215,13 +249,6 @@ class _CalendarPageState extends State<CalendarPage> {
                                 color: Colors.white,
                               ),
                             ),
-                          // If not selected but has tasks, add empty space to maintain alignment
-                          if (!isSelected && hasTasks)
-                            const SizedBox(
-                              height: 12,
-                            ), // Same height as dot + margin
-                          // If no tasks, add minimal space
-                          if (!hasTasks) const SizedBox(height: 6),
                           Text(
                             _weekdayName(d.weekday),
                             style: const TextStyle(
@@ -251,71 +278,87 @@ class _CalendarPageState extends State<CalendarPage> {
 
           const SizedBox(height: 12),
 
-          // SELECTED DATE + TASK COUNT
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Text(
-                  "$monthName ${selectedDate.day}, ${selectedDate.year}",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  "${tasks.length} Tasks",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF7C63DE),
-                  ),
-                ),
-              ],
+          // 📋 TASK LIST
+          Expanded(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _calendarTasksFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final tasks = snapshot.data ?? [];
+
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            "$monthName ${selectedDate.day}, ${selectedDate.year}",
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            "${tasks.length} Tasks",
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF7C63DE),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: tasks.isEmpty
+                          ? _buildEmptyState()
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 14),
+                              itemCount: tasks.length,
+                              itemBuilder: (_, i) {
+                                final task = tasks[i];
+                                return TaskCard(
+                                  title: task["title"] ?? "No Title",
+                                  subtitle:
+                                      task["description"] ?? "No Description",
+                                  tags: _convertDbTags(task),
+                                );
+                              },
+                            ),
+                    ),
+                    const SizedBox(height: 80), // Space for bottom bar
+                  ],
+                );
+              },
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 14),
-
-          // TASK LIST
-          Expanded(
-            child: tasks.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.task_outlined,
-                          size: 64,
-                          color: Colors.grey[300],
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          "No tasks for this date",
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          "Date: $key",
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    separatorBuilder: (_, __) => const SizedBox(height: 14),
-                    itemCount: tasks.length,
-                    itemBuilder: (_, i) {
-                      final task = tasks[i];
-                      return TaskCard(
-                        title: task["title"] ?? "No Title",
-                        subtitle: task["subtitle"] ?? "No Description",
-                        tags: _convertTags(task["tags"]),
-                      );
-                    },
-                  ),
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.task_outlined, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          const Text(
+            "No tasks for this date",
+            style: TextStyle(fontSize: 16, color: Colors.grey),
           ),
         ],
       ),
