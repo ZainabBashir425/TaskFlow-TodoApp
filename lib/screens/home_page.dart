@@ -3,7 +3,6 @@ import '../widgets/stat_card.dart';
 import '../widgets/task_card.dart';
 import '../widgets/tag_chip.dart';
 import '../services/supabase_service.dart';
-import 'new_task_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
