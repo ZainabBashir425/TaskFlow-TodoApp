@@ -15,14 +15,19 @@ class TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Detect if the app is currently in Dark Mode
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        // 2. Flip background color: Dark Grey (0xFF1E1E1E) for Dark Mode, White for Light Mode
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            // 3. Make shadows subtler or invisible in dark mode
+            color: isDark ? Colors.black38 : Colors.black.withOpacity(0.05),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -43,7 +48,6 @@ class TaskCard extends StatelessWidget {
 
           const SizedBox(width: 12),
 
-          // Everything else in ONE COLUMN
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,9 +55,11 @@ class TaskCard extends StatelessWidget {
                 // Title
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
+                    // 4. Set title text to white in Dark Mode
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
 
@@ -62,8 +68,9 @@ class TaskCard extends StatelessWidget {
                 // Subtitle
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: Colors.black54,
+                  style: TextStyle(
+                    // 5. Set subtitle to light grey in Dark Mode
+                    color: isDark ? Colors.white70 : Colors.black54,
                     fontSize: 14,
                   ),
                 ),
@@ -71,11 +78,7 @@ class TaskCard extends StatelessWidget {
                 const SizedBox(height: 10),
 
                 // Tags
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: tags,
-                ),
+                Wrap(spacing: 8, runSpacing: 6, children: tags),
               ],
             ),
           ),

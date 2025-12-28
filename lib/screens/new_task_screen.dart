@@ -17,12 +17,28 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = const TimeOfDay(hour: 12, minute: 0);
 
+  // Helper to get dark mode status
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: isDark
+                ? const ColorScheme.dark(
+                    primary: Color(0xFF7B61FF),
+                    surface: Color(0xFF1E1E1E),
+                  )
+                : const ColorScheme.light(primary: Color(0xFF7B61FF)),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() => _selectedDate = picked);
@@ -33,6 +49,19 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: isDark
+                ? const ColorScheme.dark(
+                    primary: Color(0xFF7B61FF),
+                    surface: Color(0xFF1E1E1E),
+                  )
+                : const ColorScheme.light(primary: Color(0xFF7B61FF)),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() => _selectedTime = picked);
@@ -41,11 +70,9 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
 
   Future<void> _createTask() async {
     if (_titleController.text.isEmpty) return;
-
     try {
       final dueTime =
           '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}:00';
-
       await SupabaseService.client.from('tasks').insert({
         'title': _titleController.text,
         'description': _descController.text,
@@ -55,15 +82,11 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
         'due_time': dueTime,
         'status': 'Active',
       });
-
-      if (mounted) {
-        Navigator.of(context).pop(true); // Only returns true if successful
-      }
+      if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      // Show an error snackbar so you know if it failed
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Error creating task: $e")));
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -77,18 +100,22 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      // Dynamic background color
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(
+            Icons.arrow_back,
+            color: isDark ? Colors.white : Colors.black,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           'New Task',
           style: TextStyle(
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
@@ -106,126 +133,78 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
               controller: _titleController,
               hintText: 'Enter task title',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
             _buildSectionTitle('Description'),
             const SizedBox(height: 12),
             _buildTextField(
               controller: _descController,
-              hintText: 'Add details about your task',
+              hintText: 'Add details...',
               maxLines: 3,
             ),
             const SizedBox(height: 24),
-            Container(height: 1, color: Colors.grey[300]),
+            Divider(color: isDark ? Colors.white10 : Colors.grey[300]),
             const SizedBox(height: 24),
-
             Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionTitle('Priority'),
-                      const SizedBox(height: 8),
-                      _buildDropdown(
-                        value: _selectedPriority,
-                        items: const ['Low', 'Medium', 'High'],
-                        onChanged: (value) =>
-                            setState(() => _selectedPriority = value!),
-                      ),
-                    ],
+                  child: _buildLabelledDropdown(
+                    'Priority',
+                    _selectedPriority,
+                    ['Low', 'Medium', 'High'],
+                    (v) => setState(() => _selectedPriority = v!),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionTitle('Category'),
-                      const SizedBox(height: 8),
-                      _buildDropdown(
-                        value: _selectedCategory,
-                        items: const ['Personal', 'Work', 'Shopping', 'Health'],
-                        onChanged: (value) =>
-                            setState(() => _selectedCategory = value!),
-                      ),
-                    ],
+                  child: _buildLabelledDropdown(
+                    'Category',
+                    _selectedCategory,
+                    ['Personal', 'Work', 'Shopping', 'Health'],
+                    (v) => setState(() => _selectedCategory = v!),
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 24),
-
             Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionTitle('Due Date'),
-                      const SizedBox(height: 8),
-                      _buildDateTile(
-                        text:
-                            '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                        icon: Icons.calendar_today_outlined,
-                        onTap: () => _selectDate(context),
-                      ),
-                    ],
+                  child: _buildLabelledDateTile(
+                    'Due Date',
+                    '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                    Icons.calendar_today_outlined,
+                    () => _selectDate(context),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionTitle('Time'),
-                      const SizedBox(height: 8),
-                      _buildDateTile(
-                        text: _selectedTime.format(context),
-                        icon: Icons.access_time,
-                        onTap: () => _selectTime(context),
-                      ),
-                    ],
+                  child: _buildLabelledDateTile(
+                    'Time',
+                    _selectedTime.format(context),
+                    Icons.access_time,
+                    () => _selectTime(context),
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 40),
-
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF7B61FF), Color(0xFFA28BFF)],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ElevatedButton(
-                onPressed: _createTask,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text(
-                  'Create Task',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-
+            _buildCreateButton(),
             const SizedBox(height: 12),
-
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(
+                    color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  ),
+                ),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : Colors.grey.shade700,
+                  ),
+                ),
               ),
             ),
           ],
@@ -234,13 +213,15 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
     );
   }
 
+  // --- REFACTORED ADAPTIVE WIDGETS ---
+
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w600,
-        color: Colors.black87,
+        color: isDark ? Colors.white : Colors.black87,
       ),
     );
   }
@@ -252,15 +233,17 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.grey[50],
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.grey[300]!),
       ),
       child: TextField(
         controller: controller,
         maxLines: maxLines,
+        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
         decoration: InputDecoration(
           hintText: hintText,
+          hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -271,48 +254,113 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
     );
   }
 
-  Widget _buildDropdown({
-    required String value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          items: items
-              .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-              .toList(),
-          onChanged: onChanged,
+  Widget _buildLabelledDropdown(
+    String label,
+    String value,
+    List<String> items,
+    ValueChanged<String?> onChanged,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(label),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.grey[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isDark ? Colors.white12 : Colors.grey[300]!,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              isExpanded: true,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              items: items
+                  .map(
+                    (item) => DropdownMenuItem(value: item, child: Text(item)),
+                  )
+                  .toList(),
+              onChanged: onChanged,
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  Widget _buildDateTile({
-    required String text,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.grey[50],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!),
+  Widget _buildLabelledDateTile(
+    String label,
+    String text,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(label),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDark ? Colors.white12 : Colors.grey[300]!,
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  text,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const Spacer(),
+                Icon(
+                  icon,
+                  size: 18,
+                  color: isDark ? Colors.white54 : Colors.black54,
+                ),
+              ],
+            ),
+          ),
         ),
-        child: Row(
-          children: [Text(text), const Spacer(), Icon(icon, size: 18)],
+      ],
+    );
+  }
+
+  Widget _buildCreateButton() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF7B61FF), Color(0xFFA28BFF)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ElevatedButton(
+        onPressed: _createTask,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+        child: const Text(
+          'Create Task',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
       ),
     );

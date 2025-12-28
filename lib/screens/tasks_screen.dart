@@ -7,20 +7,31 @@ class TasksScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Detect Theme Mode
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SafeArea(
       child: Column(
         children: [
-          // header
+          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
             child: Row(
-              children: const [
+              children: [
                 Text(
                   'All Task',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    // 2. Adjust Header Text Color
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
                 ),
-                Spacer(),
-                Icon(Icons.menu_open_sharp),
+                const Spacer(),
+                Icon(
+                  Icons.menu_open_sharp,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
               ],
             ),
           ),
@@ -29,33 +40,43 @@ class TasksScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: TextField(
-              style: const TextStyle(color: Colors.black87),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               decoration: InputDecoration(
                 hintText: 'Search task...',
-                hintStyle: TextStyle(color: Colors.grey.shade500),
-                prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
+                hintStyle: TextStyle(
+                  color: isDark ? Colors.white38 : Colors.grey.shade500,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: isDark ? Colors.white38 : Colors.grey.shade500,
+                ),
 
                 filled: true,
-                fillColor: Colors.white,
+                // 3. Dynamic search bar background
+                fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
 
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
 
-                // NORMAL BORDER
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade400, width: 1.4),
+                  borderSide: BorderSide(
+                    color: isDark ? Colors.white12 : Colors.grey.shade400,
+                    width: 1.4,
+                  ),
                 ),
-
-                // ENABLED BORDER
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade400, width: 1.4),
+                  borderSide: BorderSide(
+                    color: isDark ? Colors.white12 : Colors.grey.shade400,
+                    width: 1.4,
+                  ),
                 ),
-
-                // FOCUSED BORDER
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade600, width: 1.4),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF7C63DE),
+                    width: 1.4,
+                  ),
                 ),
               ),
             ),
@@ -68,7 +89,7 @@ class TasksScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
               children: [
-                // ACTIVE TAB (GRADIENT)
+                // ACTIVE TAB (Keep Gradient as is, it looks great in both modes)
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -84,7 +105,6 @@ class TasksScreen extends StatelessWidget {
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
-                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -93,57 +113,10 @@ class TasksScreen extends StatelessWidget {
 
                 const SizedBox(width: 8),
 
-                // ACTIVE TAB
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey.shade300, // grey border
-                        width: 1.6,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'Active (2)',
-                        style: TextStyle(
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
+                // INACTIVE TAB (Dynamic background and border)
+                _buildInactiveTab('Active (2)', isDark),
                 const SizedBox(width: 8),
-
-                // DONE TAB
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey.shade300, // grey border
-                        width: 1.6,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'Done (2)',
-                        style: TextStyle(
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                _buildInactiveTab('Done (2)', isDark),
               ],
             ),
           ),
@@ -156,11 +129,14 @@ class TasksScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Column(
                 children: [
-                  TaskCard(
+                  const TaskCard(
                     title: "Welcome to TaskFlow!",
                     subtitle: "Complete this task to get started",
                     tags: [
-                      TagChip(text: 'Getting Started', color: Color(0xFF8A38F5)),
+                      TagChip(
+                        text: 'Getting Started',
+                        color: Color(0xFF8A38F5),
+                      ),
                       TagChip(text: 'high', color: Color(0xFFD93C65)),
                       TagChip(
                         text: 'Oct 18',
@@ -170,7 +146,7 @@ class TasksScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  TaskCard(
+                  const TaskCard(
                     title: "Create Your first task",
                     subtitle: "Tap the + button to add a new task",
                     tags: [
@@ -189,6 +165,34 @@ class TasksScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Helper method to keep code clean
+  Widget _buildInactiveTab(String label, bool isDark) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          // 4. Flip tab background and border
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? Colors.white10 : Colors.grey.shade300,
+            width: 1.6,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isDark ? Colors.white60 : const Color(0xFF64748B),
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+        ),
       ),
     );
   }
