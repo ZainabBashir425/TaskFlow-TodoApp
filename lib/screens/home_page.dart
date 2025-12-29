@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/task_card.dart';
 import '../widgets/tag_chip.dart';
-import '../services/supabase_service.dart';
+import 'task_detail_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,6 +13,7 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
+  final SupabaseClient supabase = Supabase.instance.client;
   late Future<List<Map<String, dynamic>>> _tasksFuture;
 
   @override
@@ -20,6 +22,7 @@ class HomePageState extends State<HomePage> {
     _tasksFuture = fetchTasks();
   }
 
+  // Refresh helper for external calls
   void refreshData() {
     setState(() {
       _tasksFuture = fetchTasks();
@@ -27,12 +30,72 @@ class HomePageState extends State<HomePage> {
   }
 
   Future<List<Map<String, dynamic>>> fetchTasks() async {
-    final response = await SupabaseService.client
+    final response = await supabase
         .from('tasks')
         .select()
         .order('created_at', ascending: false);
 
     return List<Map<String, dynamic>>.from(response);
+  }
+
+  // --- LOGIC: Toggle Status ---
+  Future<void> _toggleStatus(Map<String, dynamic> task) async {
+    final newStatus = task['status'] == 'done' ? 'active' : 'done';
+    await supabase
+        .from('tasks')
+        .update({'status': newStatus})
+        .eq('id', task['id']);
+    refreshData();
+  }
+
+  // --- LOGIC: Delete Task ---
+  Future<void> _deleteTask(dynamic id) async {
+    await supabase.from('tasks').delete().eq('id', id);
+    refreshData();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF6F7FB),
+      body: SafeArea(
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _tasksFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: Color(0xFF7B61FF)),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return const Center(child: Text('Error loading tasks'));
+            }
+
+            final tasks = snapshot.data ?? [];
+            final total = tasks.length;
+            // Changed 'Done' to 'done' to match your database lowercase convention
+            final completed = tasks.where((t) => t['status'] == 'done').length;
+            final progress = total == 0 ? 0.0 : completed / total;
+
+            return SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildHeader(progress),
+                  _buildStatsRow(total, completed, isDark),
+                  _buildTodayTasks(tasks, isDark),
+                  const SizedBox(height: 100), // Space for FAB/Navbar
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   Widget _buildHeader(double progress) {
@@ -78,12 +141,12 @@ class HomePageState extends State<HomePage> {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 25),
           const Text(
             "Today's Progress",
             style: TextStyle(color: Colors.white70),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: LinearProgressIndicator(
@@ -91,6 +154,15 @@ class HomePageState extends State<HomePage> {
               minHeight: 10,
               backgroundColor: Colors.white24,
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "${(progress * 100).toInt()}% Completed",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -108,7 +180,6 @@ class HomePageState extends State<HomePage> {
               title: 'Total Task',
               value: total.toString(),
               icon: Icons.access_time,
-              // Note: Ensure your StatCard widget also uses Theme.of(context).cardColor internally
             ),
           ),
           const SizedBox(width: 12),
@@ -127,11 +198,23 @@ class HomePageState extends State<HomePage> {
   Widget _buildTodayTasks(List<Map<String, dynamic>> tasks, bool isDark) {
     if (tasks.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.only(top: 50),
         child: Center(
-          child: Text(
-            "No tasks yet",
-            style: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
+          child: Column(
+            children: [
+              Icon(
+                Icons.task_outlined,
+                size: 50,
+                color: isDark ? Colors.white24 : Colors.grey.shade300,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "No tasks for today",
+                style: TextStyle(
+                  color: isDark ? Colors.white54 : Colors.black54,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -144,7 +227,7 @@ class HomePageState extends State<HomePage> {
           Row(
             children: [
               Text(
-                "Today's Task",
+                "Recent Tasks",
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -152,80 +235,54 @@ class HomePageState extends State<HomePage> {
                 ),
               ),
               const Spacer(),
-              const Icon(Icons.repeat, color: Color(0xFF855BE1)),
+              const Icon(Icons.repeat, color: Color(0xFF855BE1), size: 20),
             ],
           ),
           const SizedBox(height: 12),
-          ...tasks.map(
-            (task) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: TaskCard(
-                title: task['title'] ?? '',
-                subtitle: task['description'] ?? '',
-                // The TaskCard widget MUST be updated to use Theme.of(context).cardColor
-                tags: [
-                  TagChip(
-                    text: task['category'] ?? '',
-                    color: const Color(0xFF8A38F5),
+          ...tasks.take(5).map((task) {
+            // Showing only latest 5 for Home
+            final bool isDone = task['status'] == 'done';
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TaskDetailScreen(task: task),
                   ),
-                  TagChip(
-                    text: task['priority'] ?? '',
-                    color: task['priority'] == 'high'
-                        ? const Color(0xFFD93C65)
-                        : const Color(0xFFEFCB0D),
-                  ),
-                  TagChip(
-                    text: task['due_date'] ?? '',
-                    color: isDark ? Colors.white24 : const Color(0xFFE6E9F2),
-                    outlined: true,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // 🔥 Detect Theme Mode
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Scaffold(
-      // 🔥 Scaffold background now changes with theme
-      backgroundColor: isDark
-          ? const Color(0xFF121212)
-          : const Color(0xFFF6F7FB),
-      body: SafeArea(
-        child: FutureBuilder<List<Map<String, dynamic>>>(
-          future: _tasksFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (snapshot.hasError)
-              return const Center(child: Text('Error loading tasks'));
-
-            final tasks = snapshot.data ?? [];
-            final total = tasks.length;
-            final completed = tasks.where((t) => t['status'] == 'Done').length;
-            final progress = total == 0 ? 0.0 : completed / total;
-
-            return SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildHeader(progress),
-                  _buildStatsRow(total, completed, isDark),
-                  _buildTodayTasks(tasks, isDark),
-                  const SizedBox(height: 80),
-                ],
+                ),
+                child: TaskCard(
+                  title: task['title'] ?? 'Untitled',
+                  subtitle: task['description'] ?? '',
+                  isDone: isDone,
+                  onStatusToggle: () => _toggleStatus(task),
+                  onDelete: () => _deleteTask(task['id']),
+                  tags: [
+                    TagChip(
+                      text: task['category'] ?? 'General',
+                      color: const Color(0xFF8A38F5),
+                    ),
+                    if (task['priority'] != null)
+                      TagChip(
+                        text: task['priority'].toString(),
+                        color:
+                            task['priority'].toString().toLowerCase() == 'high'
+                            ? const Color(0xFFD93C65)
+                            : const Color(0xFFEFCB0D),
+                      ),
+                    if (task['due_date'] != null)
+                      TagChip(
+                        text: task['due_date'].toString().split('T')[0],
+                        color: isDark ? Colors.white38 : Colors.grey.shade600,
+                        outlined: true,
+                      ),
+                  ],
+                ),
               ),
             );
-          },
-        ),
+          }),
+        ],
       ),
     );
   }

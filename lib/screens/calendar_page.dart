@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/task_card.dart';
 import '../widgets/tag_chip.dart';
-import '../services/supabase_service.dart';
+import 'task_detail_screen.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -11,19 +12,21 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
+  final SupabaseClient supabase = Supabase.instance.client;
   DateTime selectedDate = DateTime.now();
   late Future<List<Map<String, dynamic>>> _calendarTasksFuture;
   final ScrollController _scrollController = ScrollController();
 
-  // Helper for Dark Mode detection
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
 
   @override
   void initState() {
     super.initState();
     _calendarTasksFuture = fetchTasksByDate(selectedDate);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _scrollToSelectedDate(),
+    // Use a small delay to ensure the list is rendered before scrolling
+    Future.delayed(
+      const Duration(milliseconds: 100),
+      () => _scrollToSelectedDate(),
     );
   }
 
@@ -35,6 +38,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void _scrollToSelectedDate() {
     if (_scrollController.hasClients) {
+      // Offset calculation: (day - 1) * (width + margin)
       double offset = (selectedDate.day - 1) * 64.0;
       _scrollController.animateTo(
         offset,
@@ -48,42 +52,27 @@ class _CalendarPageState extends State<CalendarPage> {
     setState(() {
       _calendarTasksFuture = fetchTasksByDate(selectedDate);
     });
-    _scrollToSelectedDate();
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: isDark
-                ? const ColorScheme.dark(
-                    primary: Color(0xFF7B61FF),
-                    surface: Color(0xFF1E1E1E),
-                    onSurface: Colors.white,
-                  )
-                : const ColorScheme.light(
-                    primary: Color(0xFF7B61FF),
-                    onSurface: Colors.black,
-                  ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null && picked != selectedDate) {
-      setState(() => selectedDate = picked);
-      _refreshCalendarTasks();
-    }
+  // --- LOGIC: Toggle Status ---
+  Future<void> _toggleStatus(Map<String, dynamic> task) async {
+    final newStatus = task['status'] == 'done' ? 'active' : 'done';
+    await supabase
+        .from('tasks')
+        .update({'status': newStatus})
+        .eq('id', task['id']);
+    _refreshCalendarTasks();
+  }
+
+  // --- LOGIC: Delete Task ---
+  Future<void> _deleteTask(dynamic id) async {
+    await supabase.from('tasks').delete().eq('id', id);
+    _refreshCalendarTasks();
   }
 
   Future<List<Map<String, dynamic>>> fetchTasksByDate(DateTime date) async {
     final dateString = _formatDate(date);
-    final response = await SupabaseService.client
+    final response = await supabase
         .from('tasks')
         .select()
         .eq('due_date', dateString)
@@ -91,39 +80,18 @@ class _CalendarPageState extends State<CalendarPage> {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  List<DateTime> getDisplayedDates() {
-    DateTime start = DateTime(selectedDate.year, selectedDate.month, 1);
-    int daysInMonth = DateTime(
-      selectedDate.year,
-      selectedDate.month + 1,
-      0,
-    ).day;
-    return List.generate(daysInMonth, (i) => start.add(Duration(days: i)));
-  }
-
   String _formatDate(DateTime date) =>
       "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
 
-  List<TagChip> _convertDbTags(Map<String, dynamic> task) {
-    return [
-      TagChip(text: task['category'] ?? 'Task', color: const Color(0xFF8A38F5)),
-      TagChip(
-        text: task['priority'] ?? 'low',
-        color: task['priority'] == 'high'
-            ? const Color(0xFFD93C65)
-            : const Color(0xFFEFCB0D),
-      ),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
-    final dates = getDisplayedDates();
+    final dates = _getDisplayedDates();
     final monthName = _monthName(selectedDate.month);
 
     return Scaffold(
-      // 🌙 Background adjusts to Dark/Light mode
-      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF8FAFC),
       body: Column(
         children: [
           _buildHeader(),
@@ -142,13 +110,13 @@ class _CalendarPageState extends State<CalendarPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [const Color(0xFF7B61FF), const Color(0xFFA28BFF)],
+          colors: [Color(0xFF7B61FF), Color(0xFFA28BFF)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: const BorderRadius.only(
+        borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(26),
           bottomRight: Radius.circular(26),
         ),
@@ -203,78 +171,71 @@ class _CalendarPageState extends State<CalendarPage> {
 
   Widget _buildDateSlider(List<DateTime> dates) {
     return SizedBox(
-      height: 110,
-      child: SingleChildScrollView(
+      height: 100,
+      child: ListView.builder(
         controller: _scrollController,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 18),
-        child: Row(
-          children: dates.map((d) {
-            final isSelected =
-                d.day == selectedDate.day && d.month == selectedDate.month;
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  selectedDate = d;
-                  _refreshCalendarTasks();
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.only(right: 14),
-                width: 50,
-                height: isSelected ? 110 : 90,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF7D3CD9), // KEPT AS REQUESTED
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white, width: 2.0),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFF7B61FF).withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 6),
-                          ),
-                        ]
-                      : [],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (isSelected)
-                      Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsets.only(bottom: 6),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                        ),
-                      ),
-                    Text(
-                      _weekdayName(d.weekday),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      d.day.toString(),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: isSelected ? 26 : 22,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.w600,
-                      ),
-                    ),
-                  ],
+        itemCount: dates.length,
+        itemBuilder: (context, index) {
+          final d = dates[index];
+          final isSelected =
+              d.day == selectedDate.day &&
+              d.month == selectedDate.month &&
+              d.year == selectedDate.year;
+
+          return GestureDetector(
+            onTap: () {
+              setState(() => selectedDate = d);
+              _refreshCalendarTasks();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 14),
+              width: 50,
+              decoration: BoxDecoration(
+                gradient: isSelected
+                    ? const LinearGradient(
+                        colors: [Color(0xFF7B61FF), Color(0xFFB26BFF)],
+                      )
+                    : null,
+                color: isSelected
+                    ? null
+                    : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isSelected
+                      ? Colors.transparent
+                      : (isDark ? Colors.white12 : Colors.grey.shade300),
+                  width: 1.5,
                 ),
               ),
-            );
-          }).toList(),
-        ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _weekdayName(d.weekday),
+                    style: TextStyle(
+                      color: isSelected ? Colors.white70 : Colors.grey,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    d.day.toString(),
+                    style: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? Colors.white : Colors.black),
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -291,27 +252,14 @@ class _CalendarPageState extends State<CalendarPage> {
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
                 child: Row(
                   children: [
                     Text(
-                      "$monthName ${selectedDate.day}, ${selectedDate.year}",
+                      "${tasks.length} Tasks for Today",
                       style: TextStyle(
-                        fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      "${tasks.length} Tasks",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF7C63DE),
+                        color: isDark ? Colors.white : Colors.black54,
                       ),
                     ),
                   ],
@@ -326,10 +274,32 @@ class _CalendarPageState extends State<CalendarPage> {
                         itemCount: tasks.length,
                         itemBuilder: (_, i) {
                           final task = tasks[i];
-                          return TaskCard(
-                            title: task["title"] ?? "No Title",
-                            subtitle: task["description"] ?? "No Description",
-                            tags: _convertDbTags(task),
+                          return GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TaskDetailScreen(task: task),
+                              ),
+                            ),
+                            child: TaskCard(
+                              title: task["title"] ?? "Untitled",
+                              subtitle: task["description"] ?? "",
+                              isDone: task['status'] == 'done',
+                              onStatusToggle: () => _toggleStatus(task),
+                              onDelete: () => _deleteTask(task['id']),
+                              tags: [
+                                TagChip(
+                                  text: task['category'] ?? 'Task',
+                                  color: const Color(0xFF8A38F5),
+                                ),
+                                TagChip(
+                                  text: task['priority'] ?? 'low',
+                                  color: task['priority'] == 'high'
+                                      ? const Color(0xFFD93C65)
+                                      : const Color(0xFFEFCB0D),
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),
@@ -348,21 +318,43 @@ class _CalendarPageState extends State<CalendarPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.task_outlined,
+            Icons.event_busy,
             size: 64,
-            color: isDark ? Colors.white10 : Colors.grey[300],
+            color: isDark ? Colors.white10 : Colors.grey[200],
           ),
           const SizedBox(height: 16),
           Text(
-            "No tasks for this date",
-            style: TextStyle(
-              fontSize: 16,
-              color: isDark ? Colors.white38 : Colors.grey,
-            ),
+            "No tasks scheduled",
+            style: TextStyle(color: isDark ? Colors.white38 : Colors.grey),
           ),
         ],
       ),
     );
+  }
+
+  // --- Date Helpers ---
+  List<DateTime> _getDisplayedDates() {
+    DateTime start = DateTime(selectedDate.year, selectedDate.month, 1);
+    int daysInMonth = DateTime(
+      selectedDate.year,
+      selectedDate.month + 1,
+      0,
+    ).day;
+    return List.generate(daysInMonth, (i) => start.add(Duration(days: i)));
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null && picked != selectedDate) {
+      setState(() => selectedDate = picked);
+      _refreshCalendarTasks();
+      _scrollToSelectedDate();
+    }
   }
 
   String _monthName(int m) => [

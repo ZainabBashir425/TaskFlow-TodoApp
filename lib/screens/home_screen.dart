@@ -8,31 +8,35 @@ import 'new_task_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
-  // 1. Add a GlobalKey to access HomePage's state
-  final GlobalKey<HomePageState> _homeKey = GlobalKey<HomePageState>();
 
+  // 1. Initialize directly here. This removes the 'late' risk entirely.
+  final List<Widget> _pages = [
+    const HomePage(),
+    const TasksScreen(),
+    const CalendarPage(),
+    const SettingsPage(),
+  ];
+
+  // Handle tab changes
   void _onTabSelected(int idx) {
-    setState(() => _index = idx);
+    setState(() {
+      _index = idx;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // 2. Update the pages list to use the key
-    final List<Widget> _pages = [
-      HomePage(key: _homeKey), // Pass the key here
-      const TasksScreen(),
-      const CalendarPage(),
-      const SettingsPage(),
-    ];
-
     return Scaffold(
+      // IndexedStack now has guaranteed access to _pages
       body: IndexedStack(index: _index, children: _pages),
+
       floatingActionButton: Container(
         width: 68,
         height: 68,
@@ -53,21 +57,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: RawMaterialButton(
           shape: const CircleBorder(),
-          onPressed: () async {
-            // 3. Open the screen and wait for the result
-            final result = await Navigator.of(context).push(
+          onPressed: () {
+            // Push to NewTaskScreen - Supabase Streams handle the update
+            Navigator.of(context).push(
               MaterialPageRoute(builder: (context) => const NewTaskScreen()),
             );
-
-            // 4. If a task was added, call the refresh function in HomePage
-            if (result == true) {
-              _homeKey.currentState?.refreshData();
-            }
           },
           child: const Icon(Icons.add, size: 32, color: Colors.white),
         ),
       ),
+
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+
       bottomNavigationBar: BottomNavBar(
         currentIndex: _index,
         onTap: _onTabSelected,
