@@ -14,7 +14,6 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   final SupabaseClient supabase = Supabase.instance.client;
   DateTime selectedDate = DateTime.now();
-  late Future<List<Map<String, dynamic>>> _calendarTasksFuture;
   final ScrollController _scrollController = ScrollController();
 
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
@@ -22,10 +21,9 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   void initState() {
     super.initState();
-    _calendarTasksFuture = fetchTasksByDate(selectedDate);
     // Use a small delay to ensure the list is rendered before scrolling
     Future.delayed(
-      const Duration(milliseconds: 100),
+      const Duration(milliseconds: 150),
       () => _scrollToSelectedDate(),
     );
   }
@@ -38,7 +36,6 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void _scrollToSelectedDate() {
     if (_scrollController.hasClients) {
-      // Offset calculation: (day - 1) * (width + margin)
       double offset = (selectedDate.day - 1) * 64.0;
       _scrollController.animateTo(
         offset,
@@ -48,36 +45,28 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
-  void _refreshCalendarTasks() {
-    setState(() {
-      _calendarTasksFuture = fetchTasksByDate(selectedDate);
-    });
-  }
-
   // --- LOGIC: Toggle Status ---
   Future<void> _toggleStatus(Map<String, dynamic> task) async {
     final newStatus = task['status'] == 'done' ? 'active' : 'done';
-    await supabase
-        .from('tasks')
-        .update({'status': newStatus})
-        .eq('id', task['id']);
-    _refreshCalendarTasks();
+    try {
+      await supabase
+          .from('tasks')
+          .update({'status': newStatus})
+          .eq('id', task['id']);
+    } catch (e) {
+      debugPrint("Update error: $e");
+    }
   }
 
   // --- LOGIC: Delete Task ---
   Future<void> _deleteTask(dynamic id) async {
-    await supabase.from('tasks').delete().eq('id', id);
-    _refreshCalendarTasks();
-  }
-
-  Future<List<Map<String, dynamic>>> fetchTasksByDate(DateTime date) async {
-    final dateString = _formatDate(date);
-    final response = await supabase
-        .from('tasks')
-        .select()
-        .eq('due_date', dateString)
-        .order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(response);
+    try {
+      await supabase.from('tasks').delete().eq('id', id);
+      // We call setState just to ensure the UI rebuilds its stream listener
+      setState(() {});
+    } catch (e) {
+      debugPrint("Delete error: $e");
+    }
   }
 
   String _formatDate(DateTime date) =>
@@ -100,7 +89,7 @@ class _CalendarPageState extends State<CalendarPage> {
           const SizedBox(height: 16),
           _buildDateSlider(dates),
           const SizedBox(height: 12),
-          _buildTaskList(monthName),
+          _buildTaskList(),
         ],
       ),
     );
@@ -187,7 +176,6 @@ class _CalendarPageState extends State<CalendarPage> {
           return GestureDetector(
             onTap: () {
               setState(() => selectedDate = d);
-              _refreshCalendarTasks();
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
@@ -240,74 +228,69 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  Widget _buildTaskList(String monthName) {
+  Widget _buildTaskList() {
     return Expanded(
-      child: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _calendarTasksFuture,
+      child: StreamBuilder<List<Map<String, dynamic>>>(
+        // The ValueKey forces a fresh stream connection when the date changes
+        key: ValueKey('stream_${_formatDate(selectedDate)}'),
+        stream: supabase
+            .from('tasks')
+            .stream(primaryKey: ['id'])
+            .eq('due_date', _formatDate(selectedDate))
+            .order('created_at', ascending: false),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text("Error loading tasks"));
+          }
+
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+
           final tasks = snapshot.data ?? [];
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-                child: Row(
-                  children: [
-                    Text(
-                      "${tasks.length} Tasks for Today",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: tasks.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        separatorBuilder: (_, __) => const SizedBox(height: 14),
-                        itemCount: tasks.length,
-                        itemBuilder: (_, i) {
-                          final task = tasks[i];
-                          return GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TaskDetailScreen(task: task),
-                              ),
-                            ),
-                            child: TaskCard(
-                              title: task["title"] ?? "Untitled",
-                              subtitle: task["description"] ?? "",
-                              isDone: task['status'] == 'done',
-                              onStatusToggle: () => _toggleStatus(task),
-                              onDelete: () => _deleteTask(task['id']),
-                              tags: [
-                                TagChip(
-                                  text: task['category'] ?? 'Task',
-                                  color: const Color(0xFF8A38F5),
-                                ),
-                                TagChip(
-                                  text: task['priority'] ?? 'low',
-                                  color: task['priority'] == 'high'
-                                      ? const Color(0xFFD93C65)
-                                      : const Color(0xFFEFCB0D),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-              const SizedBox(height: 80),
-            ],
+
+          if (tasks.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          return ListView.separated(
+            // The UniqueKey here ensures that if a task is deleted,
+            // the entire ListView resets to prevent "ghost" items
+            key: UniqueKey(),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: tasks.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 14),
+            itemBuilder: (_, i) => _buildTaskItem(tasks[i]),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildTaskItem(Map<String, dynamic> task) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => TaskDetailScreen(task: task)),
+      ),
+      child: TaskCard(
+        title: task["title"] ?? "Untitled",
+        subtitle: task["description"] ?? "",
+        isDone: task['status'] == 'done',
+        onStatusToggle: () => _toggleStatus(task),
+        onDelete: () => _deleteTask(task['id']),
+        tags: [
+          TagChip(
+            text: task['category'] ?? 'Task',
+            color: const Color(0xFF8A38F5),
+          ),
+          TagChip(
+            text: task['priority'] ?? 'low',
+            color: task['priority'] == 'high'
+                ? const Color(0xFFD93C65)
+                : const Color(0xFFEFCB0D),
+          ),
+        ],
       ),
     );
   }
@@ -332,7 +315,6 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  // --- Date Helpers ---
   List<DateTime> _getDisplayedDates() {
     DateTime start = DateTime(selectedDate.year, selectedDate.month, 1);
     int daysInMonth = DateTime(
@@ -352,7 +334,6 @@ class _CalendarPageState extends State<CalendarPage> {
     );
     if (picked != null && picked != selectedDate) {
       setState(() => selectedDate = picked);
-      _refreshCalendarTasks();
       _scrollToSelectedDate();
     }
   }

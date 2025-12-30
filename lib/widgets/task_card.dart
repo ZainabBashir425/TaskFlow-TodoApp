@@ -57,9 +57,7 @@ class TaskCard extends StatelessWidget {
                       width: 2,
                     ),
                     shape: BoxShape.circle,
-                    color: isDone
-                        ? Color.fromARGB(255, 17, 17, 17)
-                        : Colors.transparent,
+                    color: isDone ? Color(0xFF855BE1) : Colors.transparent,
                   ),
                   child: isDone
                       ? const Icon(Icons.check, size: 16, color: Colors.white)
